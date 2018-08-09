@@ -1,0 +1,32 @@
+{
+  "author": "Thibault Derousseaux <tibdex@gmail.com>",
+  "dependencies": {
+    "@octokit/rest": "15.9.5",
+    "envalid": "4.1.4",
+    "jsonwebtoken": "8.3.0",
+    "uuid": "3.3.2"
+  },
+  "devDependencies": {
+    "babel-eslint": "8.2.6",
+    "envalid": "4.1.4",
+    "eslint": "5.3.0",
+    "eslint-config-prettier": "2.9.0",
+    "eslint-plugin-flowtype": "2.50.0",
+    "eslint-plugin-import": "2.13.0",
+    "eslint-plugin-security": "1.4.0",
+    "eslint-plugin-unicorn": "5.0.0",
+    "flow-bin": "0.78.0",
+    "prettier": "1.14.2"
+  },
+  "license": "MIT",
+  "name": "@tibdex/shared-github-internals",
+  "private": true,
+  "repository": "github:tibdex/shared-github-internals",
+  "scripts": {
+    "eslint": "eslint . --max-warnings 0",
+    "flow": "flow",
+    "prettier": "prettier \"**/*.{js,json,md,yml}\"",
+    "test": "jest"
+  },
+  "version": "0.1.0"
+}
