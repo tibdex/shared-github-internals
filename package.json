@@ -5,7 +5,7 @@
     "envalid": "^4.1.4",
     "uuid": "^3.3.2"
   },
-  "description": "Private package used as a development dependency in GitHub-related repositories",
+  "description": "Dependency used by GitHub-related repositories",
   "devDependencies": {
     "babel-cli": "^6.26.0",
     "babel-core": "^6.26.3",
@@ -37,5 +37,5 @@
     "prettier": "prettier \"**/*.{js,json,md,yml}\"",
     "test": "jest"
   },
-  "version": "0.1.1"
+  "version": "0.1.2"
 }
