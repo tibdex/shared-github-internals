@@ -3,12 +3,12 @@
 import createOctokit, { type Github } from "@octokit/rest";
 import envalid from "envalid";
 
-import { type RepoName, type RepoOwner } from "../src/git";
+import { type RepoName, type RepoOwner } from "../git";
 
 type TestContext = {
   octokit: Github,
   owner: RepoOwner,
-  repo: RepoName
+  repo: RepoName,
 };
 
 const createTestContext = (): TestContext => {
@@ -18,14 +18,14 @@ const createTestContext = (): TestContext => {
     {
       GITHUB_PERSONAL_ACCESS_TOKEN: envalid.str({
         desc: "The token must grant read/write access to the test repository.",
-        docs: "https://github.com/settings/tokens"
+        docs: "https://github.com/settings/tokens",
       }),
       GITHUB_TEST_REPOSITORY_NAME: envalid.str({
-        desc: "Name of the repository against which the tests will be run"
+        desc: "Name of the repository against which the tests will be run",
       }),
       GITHUB_TEST_REPOSITORY_OWNER: envalid.str({
-        desc: "Owner of the repository against which the tests will be run."
-      })
+        desc: "Owner of the repository against which the tests will be run.",
+      }),
     },
     { strict: true }
   );
@@ -36,7 +36,7 @@ const createTestContext = (): TestContext => {
   const octokit = createOctokit();
   octokit.authenticate({
     token: env.GITHUB_PERSONAL_ACCESS_TOKEN,
-    type: "token"
+    type: "token",
   });
 
   return { octokit, owner, repo };

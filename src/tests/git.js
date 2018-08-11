@@ -9,8 +9,8 @@ import {
   type RepoOwner,
   type Sha,
   createTemporaryReference,
-  fetchReferenceSha
-} from "../src/git";
+  fetchReferenceSha,
+} from "../git";
 
 type CommitLines = Array<string>;
 
@@ -23,8 +23,8 @@ type ReferenceState = Array<Commit>;
 type RepoState = {
   initialCommit: Commit,
   refsCommits: {
-    [Reference]: ReferenceState
-  }
+    [Reference]: ReferenceState,
+  },
 };
 
 const eol = "\n";
@@ -36,18 +36,18 @@ const getLines = content => content.split(lineSeparator);
 
 const createBlob = async ({ content, octokit, owner, repo }) => {
   const {
-    data: { sha }
+    data: { sha },
   } = await octokit.gitdata.createBlob({
     content,
     owner,
-    repo
+    repo,
   });
   return sha;
 };
 
 const createTree = async ({ blob, octokit, owner, repo }) => {
   const {
-    data: { sha: treeSha }
+    data: { sha: treeSha },
   } = await octokit.gitdata.createTree({
     owner,
     repo,
@@ -56,9 +56,9 @@ const createTree = async ({ blob, octokit, owner, repo }) => {
         mode: "100644",
         path: filename,
         sha: blob,
-        type: "blob"
-      }
-    ]
+        type: "blob",
+      },
+    ],
   });
   return treeSha;
 };
@@ -69,16 +69,16 @@ const createCommit = async ({
   owner,
   parent,
   repo,
-  tree
+  tree,
 }) => {
   const {
-    data: { sha }
+    data: { sha },
   } = await octokit.gitdata.createCommit({
     message,
     owner,
     parents: parent == null ? [] : [parent],
     repo,
-    tree
+    tree,
   });
   return sha;
 };
@@ -88,13 +88,13 @@ const createCommitFromLinesAndMessage = async ({
   octokit,
   owner,
   parent,
-  repo
+  repo,
 }: {
   commit: Commit,
   octokit: Github,
   owner: RepoOwner,
   parent?: Sha,
-  repo: RepoName
+  repo: RepoName,
 }): Promise<Sha> => {
   const content = getContent(lines);
   const blob = await createBlob({ content, octokit, owner, repo });
@@ -105,7 +105,7 @@ const createCommitFromLinesAndMessage = async ({
     owner,
     parent,
     repo,
-    tree
+    tree,
   });
 };
 
@@ -114,25 +114,25 @@ const createPullRequest = async ({
   head,
   octokit,
   owner,
-  repo
+  repo,
 }: {
   base: Reference,
   head: Reference,
   octokit: Github,
   owner: RepoOwner,
-  repo: RepoName
+  repo: RepoName,
 }): Promise<{
   closePullRequest: () => Promise<void>,
-  number: PullRequestNumber
+  number: PullRequestNumber,
 }> => {
   const {
-    data: { number }
+    data: { number },
   } = await octokit.pullRequests.create({
     base,
     head,
     owner,
     repo,
-    title: "Untitled"
+    title: "Untitled",
   });
   return {
     async closePullRequest() {
@@ -140,21 +140,21 @@ const createPullRequest = async ({
         number,
         owner,
         repo,
-        state: "closed"
+        state: "closed",
       });
     },
-    number
+    number,
   };
 };
 
 const fetchContent = async ({ octokit, owner, repo, ref }) => {
   const {
-    data: { content, encoding }
+    data: { content, encoding },
   } = await octokit.repos.getContent({
     owner,
     path: filename,
     ref,
-    repo
+    repo,
   });
   return Buffer.from(content, encoding).toString("utf8");
 };
@@ -163,17 +163,17 @@ const fetchReferenceCommitsFromSha = async ({
   octokit,
   owner,
   repo,
-  sha
+  sha,
 }: {
   octokit: Github,
   owner: RepoOwner,
   repo: RepoName,
-  sha: Sha
+  sha: Sha,
 }): Promise<ReferenceState> => {
   const content = await fetchContent({ octokit, owner, ref: sha, repo });
 
   const {
-    data: { message, parents }
+    data: { message, parents },
   } = await octokit.gitdata.getCommit({ commit_sha: sha, owner, repo });
 
   const commit = { lines: getLines(content), message };
@@ -183,7 +183,7 @@ const fetchReferenceCommitsFromSha = async ({
       octokit,
       owner,
       repo,
-      sha: parents[0].sha
+      sha: parents[0].sha,
     });
     return [...commits, commit];
   }
@@ -195,18 +195,18 @@ const fetchReferenceCommits = async ({
   octokit,
   owner,
   ref,
-  repo
+  repo,
 }: {
   octokit: Github,
   owner: RepoOwner,
   ref: Reference,
-  repo: RepoName
+  repo: RepoName,
 }): Promise<ReferenceState> => {
   const sha = await fetchReferenceSha({
     octokit,
     owner,
     ref,
-    repo
+    repo,
   });
   return fetchReferenceCommitsFromSha({ octokit, owner, repo, sha });
 };
@@ -217,13 +217,13 @@ const internalCreateReferences = async ({
   octokit,
   owner,
   repo,
-  state: { initialCommit, refsCommits }
+  state: { initialCommit, refsCommits },
 }) => {
   const initialCommitSha = await createCommitFromLinesAndMessage({
     commit: initialCommit,
     octokit,
     owner,
-    repo
+    repo,
   });
 
   const refNames = Object.keys(refsCommits);
@@ -238,7 +238,7 @@ const internalCreateReferences = async ({
             octokit,
             owner,
             parent: getLatestSha(accumulatedShas),
-            repo
+            repo,
           });
           return [...accumulatedShas, sha];
         },
@@ -246,13 +246,13 @@ const internalCreateReferences = async ({
       );
       const {
         deleteTemporaryReference: deleteReference,
-        temporaryRef
+        temporaryRef,
       } = await createTemporaryReference({
         octokit,
         owner,
         ref,
         repo,
-        sha: getLatestSha(shas)
+        sha: getLatestSha(shas),
       });
       return { deleteReference, shas, temporaryRef };
     })
@@ -263,15 +263,15 @@ const createReferences = async ({
   octokit,
   owner,
   repo,
-  state: { initialCommit, refsCommits }
+  state: { initialCommit, refsCommits },
 }: {
   octokit: Github,
   owner: RepoOwner,
   repo: RepoName,
-  state: RepoState
+  state: RepoState,
 }): Promise<{
   deleteReferences: () => Promise<void>,
-  refsDetails: { [Reference]: { ref: Reference, shas: Array<Sha> } }
+  refsDetails: { [Reference]: { ref: Reference, shas: Array<Sha> } },
 }> => {
   const refNames = Object.keys(refsCommits);
 
@@ -280,7 +280,7 @@ const createReferences = async ({
     owner,
     refsCommits,
     repo,
-    state: { initialCommit, refsCommits }
+    state: { initialCommit, refsCommits },
   });
 
   return {
@@ -290,12 +290,12 @@ const createReferences = async ({
       );
     },
     refsDetails: refsDetails.reduce(
-      (acc, { shas, temporaryRef }, index) => ({
-        ...acc,
-        ...{ [refNames[index]]: { ref: temporaryRef, shas } }
-      }),
+      (acc, { shas, temporaryRef }, index) =>
+        Object.assign({}, acc, {
+          [refNames[index]]: { ref: temporaryRef, shas },
+        }),
       {}
-    )
+    ),
   };
 };
 
@@ -304,5 +304,5 @@ export {
   createPullRequest,
   createReferences,
   fetchReferenceCommits,
-  fetchReferenceCommitsFromSha
+  fetchReferenceCommitsFromSha,
 };

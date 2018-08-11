@@ -4,7 +4,7 @@ module.exports = {
   env: {
     commonjs: true,
     es6: true,
-    "shared-node-browser": true
+    "shared-node-browser": true,
   },
   extends: [
     "eslint:all",
@@ -13,12 +13,12 @@ module.exports = {
     "plugin:security/recommended",
     "plugin:unicorn/recommended",
     "prettier",
-    "prettier/flowtype"
+    "prettier/flowtype",
   ],
   parser: "babel-eslint",
   parserOptions: {
     ecmaVersion: 2017,
-    sourceType: "script"
+    sourceType: "script",
   },
   plugins: ["flowtype", "import", "security", "unicorn"],
   root: true,
@@ -34,8 +34,10 @@ module.exports = {
     "no-magic-numbers": "off",
     "no-ternary": "off",
     "one-var": "off",
+    // Not supported by babel-preset-env yet.
+    "prefer-object-spread": "off",
     // The import plugin already takes care of this.
     "sort-imports": "off",
-    "sort-keys": ["error", "asc", { caseSensitive: false, natural: true }]
-  }
+    "sort-keys": ["error", "asc", { caseSensitive: false, natural: true }],
+  },
 };

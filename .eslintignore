@@ -1,2 +1,4 @@
 # Lint .eslintrc.js file
 !.*.js
+
+/lib/

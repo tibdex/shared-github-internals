@@ -1,32 +1,41 @@
 {
   "author": "Thibault Derousseaux <tibdex@gmail.com>",
   "dependencies": {
-    "@octokit/rest": "15.9.5",
-    "envalid": "4.1.4",
-    "jsonwebtoken": "8.3.0",
-    "uuid": "3.3.2"
+    "@octokit/rest": "^15.9.5",
+    "envalid": "^4.1.4",
+    "uuid": "^3.3.2"
   },
+  "description": "Private package used as a development dependency in GitHub-related repositories",
   "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-core": "^6.26.3",
     "babel-eslint": "8.2.6",
-    "envalid": "4.1.4",
-    "eslint": "5.3.0",
-    "eslint-config-prettier": "2.9.0",
-    "eslint-plugin-flowtype": "2.50.0",
-    "eslint-plugin-import": "2.13.0",
-    "eslint-plugin-security": "1.4.0",
-    "eslint-plugin-unicorn": "5.0.0",
-    "flow-bin": "0.78.0",
-    "prettier": "1.14.2"
+    "babel-preset-env": "^1.7.0",
+    "babel-preset-flow": "^6.23.0",
+    "envalid": "^4.1.4",
+    "eslint": "^5.3.0",
+    "eslint-config-prettier": "^2.9.0",
+    "eslint-plugin-flowtype": "^2.50.0",
+    "eslint-plugin-import": "^2.13.0",
+    "eslint-plugin-security": "^1.4.0",
+    "eslint-plugin-unicorn": "^5.0.0",
+    "flow-bin": "^0.78.0",
+    "flow-copy-source": "^2.0.2",
+    "prettier": "^1.14.2"
   },
+  "files": [
+    "lib/"
+  ],
   "license": "MIT",
-  "name": "@tibdex/shared-github-internals",
-  "private": true,
+  "name": "shared-github-internals",
   "repository": "github:tibdex/shared-github-internals",
   "scripts": {
+    "build": "babel src --out-dir lib && flow-copy-source src lib",
     "eslint": "eslint . --max-warnings 0",
     "flow": "flow",
+    "prepublish": "yarn build",
     "prettier": "prettier \"**/*.{js,json,md,yml}\"",
     "test": "jest"
   },
-  "version": "0.1.0"
+  "version": "0.1.1"
 }

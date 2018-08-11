@@ -29,21 +29,21 @@ const fetchReferenceSha = async ({
   octokit,
   owner,
   ref,
-  repo
+  repo,
 }: {
   octokit: Github,
   owner: RepoOwner,
   ref: Reference,
-  repo: RepoName
+  repo: RepoName,
 }): Promise<Sha> => {
   const {
     data: {
-      object: { sha }
-    }
+      object: { sha },
+    },
   } = await octokit.gitdata.getReference({
     owner,
     ref: getHeadRef(ref),
-    repo
+    repo,
   });
   return sha;
 };
@@ -54,21 +54,21 @@ const updateReference = async ({
   owner,
   ref,
   repo,
-  sha
+  sha,
 }: {
   force: boolean,
   octokit: Github,
   owner: RepoOwner,
   ref: Reference,
   repo: RepoName,
-  sha: Sha
+  sha: Sha,
 }): Promise<void> => {
   await octokit.gitdata.updateReference({
     force,
     owner,
     ref: getHeadRef(ref),
     repo,
-    sha
+    sha,
   });
 };
 
@@ -76,17 +76,17 @@ const deleteReference = async ({
   octokit,
   owner,
   ref,
-  repo
+  repo,
 }: {
   octokit: Github,
   owner: RepoOwner,
   ref: Reference,
-  repo: RepoName
+  repo: RepoName,
 }): Promise<void> => {
   await octokit.gitdata.deleteReference({
     owner,
     ref: getHeadRef(ref),
-    repo
+    repo,
   });
 };
 
@@ -95,23 +95,23 @@ const createTemporaryReference = async ({
   owner,
   ref,
   repo,
-  sha
+  sha,
 }: {
   octokit: Github,
   owner: RepoOwner,
   ref: Reference,
   repo: RepoName,
-  sha: Sha
+  sha: Sha,
 }): Promise<{
   deleteTemporaryReference: () => Promise<void>,
-  temporaryRef: Reference
+  temporaryRef: Reference,
 }> => {
   const temporaryRef = generateUniqueRef(ref);
   await octokit.gitdata.createReference({
     owner,
     ref: getFullyQualifiedRef(temporaryRef),
     repo,
-    sha
+    sha,
   });
   return {
     async deleteTemporaryReference() {
@@ -119,10 +119,10 @@ const createTemporaryReference = async ({
         octokit,
         owner,
         ref: temporaryRef,
-        repo
+        repo,
       });
     },
-    temporaryRef
+    temporaryRef,
   };
 };
 
@@ -132,17 +132,17 @@ const withTemporaryReference: <T>({
   owner: RepoOwner,
   ref: Reference,
   repo: RepoName,
-  sha: Sha
+  sha: Sha,
 }) => Promise<T> = async ({ action, octokit, owner, ref, repo, sha }) => {
   const {
     deleteTemporaryReference,
-    temporaryRef
+    temporaryRef,
   } = await createTemporaryReference({
     octokit,
     owner,
     ref,
     repo,
-    sha
+    sha,
   });
 
   try {
@@ -161,5 +161,5 @@ export {
   generateUniqueRef,
   getHeadRef,
   updateReference,
-  withTemporaryReference
+  withTemporaryReference,
 };
