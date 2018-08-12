@@ -121,10 +121,7 @@ const createPullRequest = async ({
   octokit: Github,
   owner: RepoOwner,
   repo: RepoName,
-}): Promise<{
-  closePullRequest: () => Promise<void>,
-  number: PullRequestNumber,
-}> => {
+}): Promise<PullRequestNumber> => {
   const {
     data: { number },
   } = await octokit.pullRequests.create({
@@ -134,17 +131,7 @@ const createPullRequest = async ({
     repo,
     title: "Untitled",
   });
-  return {
-    async closePullRequest() {
-      await octokit.pullRequests.update({
-        number,
-        owner,
-        repo,
-        state: "closed",
-      });
-    },
-    number,
-  };
+  return number;
 };
 
 const fetchContent = async ({ octokit, owner, repo, ref }) => {

@@ -90,6 +90,27 @@ const deleteReference = async ({
   });
 };
 
+const createReference = async ({
+  octokit,
+  owner,
+  ref,
+  repo,
+  sha,
+}: {
+  octokit: Github,
+  owner: RepoOwner,
+  ref: Reference,
+  repo: RepoName,
+  sha: Sha,
+}): Promise<void> => {
+  await octokit.gitdata.createReference({
+    owner,
+    ref: getFullyQualifiedRef(ref),
+    repo,
+    sha,
+  });
+};
+
 const createTemporaryReference = async ({
   octokit,
   owner,
@@ -107,9 +128,10 @@ const createTemporaryReference = async ({
   temporaryRef: Reference,
 }> => {
   const temporaryRef = generateUniqueRef(ref);
-  await octokit.gitdata.createReference({
+  await createReference({
+    octokit,
     owner,
-    ref: getFullyQualifiedRef(temporaryRef),
+    ref: temporaryRef,
     repo,
     sha,
   });
@@ -152,11 +174,38 @@ const withTemporaryReference: <T>({
   }
 };
 
+const getCommitShas = response => response.data.map(({ sha }) => sha);
+
+const fetchCommits = async ({
+  number,
+  octokit,
+  owner,
+  repo,
+}: {
+  number: PullRequestNumber,
+  octokit: Github,
+  owner: RepoOwner,
+  repo: RepoName,
+}): Promise<Array<Sha>> => {
+  let response = await octokit.pullRequests.getCommits({ number, owner, repo });
+  const commits = getCommitShas(response);
+  while (octokit.hasNextPage(response)) {
+    // Pagination is a legit use-case for using await in loops.
+    // See https://github.com/octokit/rest.js#pagination
+    // eslint-disable-next-line no-await-in-loop
+    response = await octokit.getNextPage(response);
+    commits.push(...getCommitShas(response));
+  }
+  return commits;
+};
+
 export type { PullRequestNumber, Reference, RepoName, RepoOwner, Sha };
 
 export {
+  createReference,
   createTemporaryReference,
   deleteReference,
+  fetchCommits,
   fetchReferenceSha,
   generateUniqueRef,
   getHeadRef,
