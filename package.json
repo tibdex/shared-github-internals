@@ -33,9 +33,9 @@
     "build": "babel src --out-dir lib && flow-copy-source src lib",
     "eslint": "eslint . --max-warnings 0",
     "flow": "flow",
-    "prepublish": "yarn build",
+    "prepublishOnly": "yarn build",
     "prettier": "prettier \"**/*.{js,json,md,yml}\"",
     "test": "jest"
   },
-  "version": "0.1.2"
+  "version": "0.1.3"
 }
