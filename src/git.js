@@ -19,6 +19,16 @@ type RepoOwner = string;
  */
 type Sha = string;
 
+type CommitMessage = string;
+
+type CommitDetails = {
+  author: {},
+  committer: {},
+  message: CommitMessage,
+  sha: Sha,
+  tree: Sha,
+};
+
 const generateUniqueRef = (ref: Reference): Reference =>
   `${ref}-${generateUuid()}`;
 const getHeadRef = (ref: Reference): Reference => `heads/${ref}`;
@@ -174,7 +184,47 @@ const withTemporaryReference: <T>({
   }
 };
 
-const getCommitShas = response => response.data.map(({ sha }) => sha);
+const getCommitsDetails = response =>
+  response.data.map(
+    ({
+      commit: {
+        author,
+        committer,
+        message,
+        tree: { sha: tree },
+      },
+      sha,
+    }) => ({
+      author,
+      committer,
+      message,
+      sha,
+      tree,
+    })
+  );
+
+const fetchCommitsDetails = async ({
+  number,
+  octokit,
+  owner,
+  repo,
+}: {
+  number: PullRequestNumber,
+  octokit: Github,
+  owner: RepoOwner,
+  repo: RepoName,
+}): Promise<Array<CommitDetails>> => {
+  let response = await octokit.pullRequests.getCommits({ number, owner, repo });
+  const details = getCommitsDetails(response);
+  while (octokit.hasNextPage(response)) {
+    // Pagination is a legit use-case for using await in loops.
+    // See https://github.com/octokit/rest.js#pagination
+    // eslint-disable-next-line no-await-in-loop
+    response = await octokit.getNextPage(response);
+    details.push(...getCommitsDetails(response));
+  }
+  return details;
+};
 
 const fetchCommits = async ({
   number,
@@ -187,25 +237,26 @@ const fetchCommits = async ({
   owner: RepoOwner,
   repo: RepoName,
 }): Promise<Array<Sha>> => {
-  let response = await octokit.pullRequests.getCommits({ number, owner, repo });
-  const commits = getCommitShas(response);
-  while (octokit.hasNextPage(response)) {
-    // Pagination is a legit use-case for using await in loops.
-    // See https://github.com/octokit/rest.js#pagination
-    // eslint-disable-next-line no-await-in-loop
-    response = await octokit.getNextPage(response);
-    commits.push(...getCommitShas(response));
-  }
-  return commits;
+  const details = await fetchCommitsDetails({ number, octokit, owner, repo });
+  return details.map(({ sha }) => sha);
 };
 
-export type { PullRequestNumber, Reference, RepoName, RepoOwner, Sha };
+export type {
+  CommitMessage,
+  CommitDetails,
+  PullRequestNumber,
+  Reference,
+  RepoName,
+  RepoOwner,
+  Sha,
+};
 
 export {
   createReference,
   createTemporaryReference,
   deleteReference,
   fetchCommits,
+  fetchCommitsDetails,
   fetchReferenceSha,
   generateUniqueRef,
   getHeadRef,

@@ -1,8 +1,16 @@
 // @flow strict
 
+import fs from "fs";
+import { EOL } from "os";
+import { join } from "path";
+import { promisify } from "util";
+
 import { type Github } from "@octokit/rest";
+import execa from "execa";
+import tempy from "tempy";
 
 import {
+  type CommitMessage,
   type PullRequestNumber,
   type Reference,
   type RepoName,
@@ -13,8 +21,6 @@ import {
 } from "../git";
 
 type CommitLines = Array<string>;
-
-type CommitMessage = string;
 
 type Commit = { lines: CommitLines, message: CommitMessage };
 
@@ -27,9 +33,17 @@ type RepoState = {
   },
 };
 
-const eol = "\n";
-const lineSeparator = `${eol}${eol}`;
+type CommandArgs = Array<string>;
+
+type CommandDirectory = string;
+
+type CommandEnv = { [string]: string };
+
+const lineSeparator = `${EOL}${EOL}`;
 const filename = "file.txt";
+
+const readFile = promisify(fs.readFile);
+const writeFile = promisify(fs.writeFile);
 
 const getContent = lines => lines.join(lineSeparator);
 const getLines = content => content.split(lineSeparator);
@@ -286,10 +300,133 @@ const createReferences = async ({
   };
 };
 
+const executeGitCommandInCurrentReference = ({
+  args,
+  directory,
+  env,
+}: {
+  args: CommandArgs,
+  directory: CommandDirectory,
+  env?: CommandEnv,
+}) => execa.stdout("git", args, { cwd: directory, env });
+
+const checkout = ({ directory, reference }) =>
+  executeGitCommandInCurrentReference({
+    args: ["checkout", reference],
+    directory,
+  });
+
+const executeGitCommand = async ({
+  args,
+  directory,
+  env,
+  reference,
+}: {
+  args: CommandArgs,
+  directory: CommandDirectory,
+  env?: CommandEnv,
+  reference: Reference,
+}) => {
+  await checkout({ directory, reference });
+  return executeGitCommandInCurrentReference({ args, directory, env });
+};
+
+const createGitRepoCommit = async ({
+  commit: { lines, message },
+  directory,
+}) => {
+  await writeFile(join(directory, filename), getContent(lines));
+  await executeGitCommandInCurrentReference({
+    args: ["add", filename],
+    directory,
+  });
+  await executeGitCommandInCurrentReference({
+    args: ["commit", "--message", message],
+    directory,
+  });
+};
+
+const createGitRepo = async ({ initialCommit, refsCommits }: RepoState) => {
+  const directory = tempy.directory();
+  await executeGitCommandInCurrentReference({ args: ["init"], directory });
+  await createGitRepoCommit({ commit: initialCommit, directory });
+  const references = Object.keys(refsCommits);
+  await references.reduce(async (referencePromise, reference) => {
+    await referencePromise;
+    return reference === "master"
+      ? Promise.resolve()
+      : executeGitCommandInCurrentReference({
+          args: ["checkout", "-b", reference],
+          directory,
+        });
+  }, Promise.resolve());
+  await references.reduce(async (referencePromise, reference) => {
+    await referencePromise;
+    await checkout({ directory, reference });
+    return refsCommits[reference].reduce(async (commitPromise, commit) => {
+      await commitPromise;
+      return createGitRepoCommit({ commit, directory });
+    }, Promise.resolve());
+  }, Promise.resolve());
+  return directory;
+};
+
+const getReferenceShasFromGitRepo = async ({
+  directory,
+  reference,
+}: {
+  directory: CommandDirectory,
+  reference: Reference,
+}): Promise<Array<Sha>> => {
+  const log = await executeGitCommand({
+    args: ["log", "--pretty=format:%h"],
+    directory,
+    reference,
+  });
+  return log.split("\n").reverse();
+};
+
+const getReferenceCommitsFromGitRepo = async ({
+  directory,
+  reference,
+}: {
+  directory: CommandDirectory,
+  reference: Reference,
+}): Promise<ReferenceState> => {
+  const shas = await getReferenceShasFromGitRepo({ directory, reference });
+  return shas.reduce(async (waitForCommits, sha) => {
+    const commits = await waitForCommits;
+    await executeGitCommandInCurrentReference({
+      args: ["checkout", sha],
+      directory,
+    });
+    const [content, message] = await Promise.all([
+      readFile(join(directory, filename)),
+      executeGitCommandInCurrentReference({
+        args: ["log", "--format=%B", "--max-count", "1"],
+        directory,
+      }),
+    ]);
+    return [
+      ...commits,
+      {
+        lines: getLines(String(content)),
+        message: message.trim(),
+      },
+    ];
+  }, Promise.resolve([]));
+};
+
+export type { CommandDirectory, RepoState };
+
 export {
   createCommitFromLinesAndMessage,
+  createGitRepo,
   createPullRequest,
   createReferences,
+  executeGitCommand,
   fetchReferenceCommits,
   fetchReferenceCommitsFromSha,
+  getReferenceCommitsFromGitRepo,
+  getReferenceShasFromGitRepo,
 };
