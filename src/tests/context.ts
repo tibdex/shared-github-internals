@@ -1,14 +1,12 @@
-// @flow strict
+import * as Octokit from "@octokit/rest";
+import * as envalid from "envalid";
 
-import createOctokit, { type Github } from "@octokit/rest";
-import envalid from "envalid";
-
-import { type RepoName, type RepoOwner } from "../git";
+import { RepoName, RepoOwner } from "../git";
 
 type TestContext = {
-  octokit: Github,
-  owner: RepoOwner,
-  repo: RepoName,
+  octokit: Octokit;
+  owner: RepoOwner;
+  repo: RepoName;
 };
 
 const createTestContext = (): TestContext => {
@@ -27,13 +25,13 @@ const createTestContext = (): TestContext => {
         desc: "Owner of the repository against which the tests will be run.",
       }),
     },
-    { strict: true }
+    { strict: true },
   );
 
   const repo = env.GITHUB_TEST_REPOSITORY_NAME;
   const owner = env.GITHUB_TEST_REPOSITORY_OWNER;
 
-  const octokit = createOctokit();
+  const octokit = new Octokit();
   octokit.authenticate({
     token: env.GITHUB_PERSONAL_ACCESS_TOKEN,
     type: "token",
@@ -42,6 +40,4 @@ const createTestContext = (): TestContext => {
   return { octokit, owner, repo };
 };
 
-export type { TestContext };
-
-export { createTestContext };
+export { createTestContext, TestContext };
