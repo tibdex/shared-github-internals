@@ -9,10 +9,10 @@ import * as tempy from "tempy";
 
 import {
   CommitMessage,
-  createTemporaryReference,
-  fetchReferenceSha,
+  createTemporaryRef,
+  fetchRefSha,
   PullRequestNumber,
-  Reference,
+  Ref,
   RepoName,
   RepoOwner,
   Sha,
@@ -24,12 +24,12 @@ type CommitLines = string[];
 
 type Commit = { lines: CommitLines; message: CommitMessage };
 
-type ReferenceState = Commit[];
+type RefState = Commit[];
 
 type RepoState = {
   initialCommit: Commit;
   refsCommits: {
-    [reference: string]: ReferenceState;
+    [ref: string]: RefState;
   };
 };
 
@@ -39,9 +39,9 @@ type CommandDirectory = string;
 
 type CommandEnv = { [key: string]: string };
 
-type DeleteReferences = () => Promise<void>;
+type DeleteRefs = () => Promise<void>;
 
-type RefsDetails = { [reference: string]: { ref: Reference; shas: Sha[] } };
+type RefsDetails = { [ref: string]: { ref: Ref; shas: Sha[] } };
 
 const lineSeparator = `${EOL}${EOL}`;
 const filename = "file.txt";
@@ -65,7 +65,7 @@ const createBlob = async ({
 }) => {
   const {
     data: { sha },
-  } = await octokit.gitdata.createBlob({
+  } = await octokit.git.createBlob({
     content,
     owner,
     repo,
@@ -86,7 +86,7 @@ const createTree = async ({
 }) => {
   const {
     data: { sha: treeSha },
-  } = await octokit.gitdata.createTree({
+  } = await octokit.git.createTree({
     owner,
     repo,
     tree: [
@@ -118,7 +118,7 @@ const createCommit = async ({
 }) => {
   const {
     data: { sha },
-  } = await octokit.gitdata.createCommit({
+  } = await octokit.git.createCommit({
     message,
     owner,
     parents: parent == null ? [] : [parent],
@@ -161,15 +161,15 @@ const createPullRequest = async ({
   owner,
   repo,
 }: {
-  base: Reference;
-  head: Reference;
+  base: Ref;
+  head: Ref;
   octokit: Octokit;
   owner: RepoOwner;
   repo: RepoName;
 }): Promise<PullRequestNumber> => {
   const {
     data: { number: pullRequestNumber },
-  } = await octokit.pullRequests.create({
+  } = await octokit.pulls.create({
     base,
     head,
     owner,
@@ -188,11 +188,11 @@ const fetchContent = async ({
   octokit: Octokit;
   owner: RepoOwner;
   repo: RepoName;
-  ref: Reference;
+  ref: Ref;
 }) => {
   const {
     data: { content, encoding },
-  } = await octokit.repos.getContent({
+  } = await octokit.repos.getContents({
     owner,
     path: filename,
     ref,
@@ -201,7 +201,7 @@ const fetchContent = async ({
   return Buffer.from(content, encoding).toString("utf8");
 };
 
-const fetchReferenceCommitsFromSha = async ({
+const fetchRefCommitsFromSha = async ({
   octokit,
   owner,
   repo,
@@ -211,17 +211,17 @@ const fetchReferenceCommitsFromSha = async ({
   owner: RepoOwner;
   repo: RepoName;
   sha: Sha;
-}): Promise<ReferenceState> => {
+}): Promise<RefState> => {
   const content = await fetchContent({ octokit, owner, ref: sha, repo });
 
   const {
     data: { message, parents },
-  } = await octokit.gitdata.getCommit({ commit_sha: sha, owner, repo });
+  } = await octokit.git.getCommit({ commit_sha: sha, owner, repo });
 
   const commit = { lines: getLines(content), message };
 
   if (parents.length !== 0) {
-    const commits = await fetchReferenceCommitsFromSha({
+    const commits = await fetchRefCommitsFromSha({
       octokit,
       owner,
       repo,
@@ -233,7 +233,7 @@ const fetchReferenceCommitsFromSha = async ({
   return [commit];
 };
 
-const fetchReferenceCommits = async ({
+const fetchRefCommits = async ({
   octokit,
   owner,
   ref,
@@ -241,21 +241,21 @@ const fetchReferenceCommits = async ({
 }: {
   octokit: Octokit;
   owner: RepoOwner;
-  ref: Reference;
+  ref: Ref;
   repo: RepoName;
-}): Promise<ReferenceState> => {
-  const sha = await fetchReferenceSha({
+}): Promise<RefState> => {
+  const sha = await fetchRefSha({
     octokit,
     owner,
     ref,
     repo,
   });
-  return fetchReferenceCommitsFromSha({ octokit, owner, repo, sha });
+  return fetchRefCommitsFromSha({ octokit, owner, repo, sha });
 };
 
 const getLatestSha = (shas: Sha[]) => shas[shas.length - 1];
 
-const internalCreateReferences = async ({
+const internalCreateRefs = async ({
   octokit,
   owner,
   repo,
@@ -292,21 +292,21 @@ const internalCreateReferences = async ({
         Promise.resolve([initialCommitSha]),
       );
       const {
-        deleteTemporaryReference: deleteReference,
+        deleteTemporaryRef: deleteRef,
         temporaryRef,
-      } = await createTemporaryReference({
+      } = await createTemporaryRef({
         octokit,
         owner,
         ref,
         repo,
         sha: getLatestSha(shas),
       });
-      return { deleteReference, shas, temporaryRef };
+      return { deleteRef, shas, temporaryRef };
     }),
   );
 };
 
-const createReferences = async ({
+const createRefs = async ({
   octokit,
   owner,
   repo,
@@ -317,12 +317,12 @@ const createReferences = async ({
   repo: RepoName;
   state: RepoState;
 }): Promise<{
-  deleteReferences: DeleteReferences;
+  deleteRefs: DeleteRefs;
   refsDetails: RefsDetails;
 }> => {
   const refNames = Object.keys(refsCommits);
 
-  const refsDetails = await internalCreateReferences({
+  const refsDetails = await internalCreateRefs({
     octokit,
     owner,
     repo,
@@ -330,10 +330,8 @@ const createReferences = async ({
   });
 
   return {
-    async deleteReferences() {
-      await Promise.all(
-        refsDetails.map(({ deleteReference }) => deleteReference()),
-      );
+    async deleteRefs() {
+      await Promise.all(refsDetails.map(({ deleteRef }) => deleteRef()));
     },
     refsDetails: refsDetails.reduce(
       (acc, { shas, temporaryRef }, index) =>
@@ -345,7 +343,7 @@ const createReferences = async ({
   };
 };
 
-const executeGitCommandInCurrentReference = ({
+const executeGitCommandInCurrentRef = ({
   args,
   directory,
   env,
@@ -357,13 +355,13 @@ const executeGitCommandInCurrentReference = ({
 
 const checkout = ({
   directory,
-  reference,
+  ref,
 }: {
   directory: CommandDirectory;
-  reference: Reference;
+  ref: Ref;
 }) =>
-  executeGitCommandInCurrentReference({
-    args: ["checkout", reference],
+  executeGitCommandInCurrentRef({
+    args: ["checkout", ref],
     directory,
   });
 
@@ -371,15 +369,15 @@ const executeGitCommand = async ({
   args,
   directory,
   env,
-  reference,
+  ref,
 }: {
   args: CommandArgs;
   directory: CommandDirectory;
   env?: CommandEnv;
-  reference: Reference;
+  ref: Ref;
 }) => {
-  await checkout({ directory, reference });
-  return executeGitCommandInCurrentReference({ args, directory, env });
+  await checkout({ directory, ref });
+  return executeGitCommandInCurrentRef({ args, directory, env });
 };
 
 const createGitRepoCommit = async ({
@@ -390,11 +388,11 @@ const createGitRepoCommit = async ({
   directory: CommandDirectory;
 }) => {
   await writeFile(join(directory, filename), getContent(lines));
-  await executeGitCommandInCurrentReference({
+  await executeGitCommandInCurrentRef({
     args: ["add", filename],
     directory,
   });
-  await executeGitCommandInCurrentReference({
+  await executeGitCommandInCurrentRef({
     args: ["commit", "--message", message],
     directory,
   });
@@ -402,22 +400,22 @@ const createGitRepoCommit = async ({
 
 const createGitRepo = async ({ initialCommit, refsCommits }: RepoState) => {
   const directory = tempy.directory();
-  await executeGitCommandInCurrentReference({ args: ["init"], directory });
+  await executeGitCommandInCurrentRef({ args: ["init"], directory });
   await createGitRepoCommit({ commit: initialCommit, directory });
-  const references = Object.keys(refsCommits);
-  await references.reduce(async (referencePromise, reference) => {
-    await referencePromise;
-    await (reference === "master"
+  const refs = Object.keys(refsCommits);
+  await refs.reduce(async (refPromise, ref) => {
+    await refPromise;
+    await (ref === "master"
       ? Promise.resolve()
-      : executeGitCommandInCurrentReference({
-          args: ["checkout", "-b", reference],
+      : executeGitCommandInCurrentRef({
+          args: ["checkout", "-b", ref],
           directory,
         }));
   }, Promise.resolve());
-  await references.reduce(async (referencePromise, reference) => {
-    await referencePromise;
-    await checkout({ directory, reference });
-    await refsCommits[reference].reduce(async (commitPromise, commit) => {
+  await refs.reduce(async (refPromise, ref) => {
+    await refPromise;
+    await checkout({ directory, ref });
+    await refsCommits[ref].reduce(async (commitPromise, commit) => {
       await commitPromise;
       await createGitRepoCommit({ commit, directory });
     }, Promise.resolve());
@@ -425,39 +423,39 @@ const createGitRepo = async ({ initialCommit, refsCommits }: RepoState) => {
   return directory;
 };
 
-const getReferenceShasFromGitRepo = async ({
+const getRefShasFromGitRepo = async ({
   directory,
-  reference,
+  ref,
 }: {
   directory: CommandDirectory;
-  reference: Reference;
+  ref: Ref;
 }): Promise<Sha[]> => {
   const log = await executeGitCommand({
     args: ["log", "--pretty=format:%h"],
     directory,
-    reference,
+    ref,
   });
   return log.split("\n").reverse();
 };
 
-const getReferenceCommitsFromGitRepo = async ({
+const getRefCommitsFromGitRepo = async ({
   directory,
-  reference,
+  ref,
 }: {
   directory: CommandDirectory;
-  reference: Reference;
-}): Promise<ReferenceState> => {
-  const shas = await getReferenceShasFromGitRepo({ directory, reference });
+  ref: Ref;
+}): Promise<RefState> => {
+  const shas = await getRefShasFromGitRepo({ directory, ref });
   const initialCommits: Commit[] = [];
   return shas.reduce(async (waitForCommits, sha) => {
     const commits = await waitForCommits;
-    await executeGitCommandInCurrentReference({
+    await executeGitCommandInCurrentRef({
       args: ["checkout", sha],
       directory,
     });
     const [content, message] = await Promise.all([
       readFile(join(directory, filename)),
-      executeGitCommandInCurrentReference({
+      executeGitCommandInCurrentRef({
         args: ["log", "--format=%B", "--max-count", "1"],
         directory,
       }),
@@ -477,13 +475,13 @@ export {
   createCommitFromLinesAndMessage,
   createGitRepo,
   createPullRequest,
-  createReferences,
-  DeleteReferences,
+  createRefs,
+  DeleteRefs,
   executeGitCommand,
-  fetchReferenceCommits,
-  fetchReferenceCommitsFromSha,
-  getReferenceCommitsFromGitRepo,
-  getReferenceShasFromGitRepo,
+  fetchRefCommits,
+  fetchRefCommitsFromSha,
+  getRefCommitsFromGitRepo,
+  getRefShasFromGitRepo,
   RefsDetails,
   RepoState,
 };
