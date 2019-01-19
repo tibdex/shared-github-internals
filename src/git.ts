@@ -6,7 +6,7 @@ type PullRequestNumber = number;
 /**
  * A Git reference name.
  */
-type Reference = string;
+type Ref = string;
 
 type RepoName = string;
 
@@ -19,9 +19,9 @@ type Sha = string;
 
 type CommitMessage = string;
 
-type CommitAuthor = {};
+type CommitAuthor = Octokit.PullsListCommitsResponseItemCommitAuthor;
 
-type CommitCommitter = {};
+type CommitCommitter = Octokit.PullsListCommitsResponseItemCommitCommitter;
 
 type CommitDetails = {
   author: CommitAuthor;
@@ -31,13 +31,11 @@ type CommitDetails = {
   tree: Sha;
 };
 
-const generateUniqueRef = (ref: Reference): Reference =>
-  `${ref}-${generateUuid()}`;
-const getHeadRef = (ref: Reference): Reference => `heads/${ref}`;
-const getFullyQualifiedRef = (ref: Reference): Reference =>
-  `refs/${getHeadRef(ref)}`;
+const generateUniqueRef = (ref: Ref): Ref => `${ref}-${generateUuid()}`;
+const getHeadRef = (ref: Ref): Ref => `heads/${ref}`;
+const getFullyQualifiedRef = (ref: Ref): Ref => `refs/${getHeadRef(ref)}`;
 
-const fetchReferenceSha = async ({
+const fetchRefSha = async ({
   octokit,
   owner,
   ref,
@@ -45,14 +43,14 @@ const fetchReferenceSha = async ({
 }: {
   octokit: Octokit;
   owner: RepoOwner;
-  ref: Reference;
+  ref: Ref;
   repo: RepoName;
 }): Promise<Sha> => {
   const {
     data: {
       object: { sha },
     },
-  } = await octokit.gitdata.getReference({
+  } = await octokit.git.getRef({
     owner,
     ref: getHeadRef(ref),
     repo,
@@ -60,7 +58,7 @@ const fetchReferenceSha = async ({
   return sha;
 };
 
-const updateReference = async ({
+const updateRef = async ({
   force,
   octokit,
   owner,
@@ -71,11 +69,11 @@ const updateReference = async ({
   force: boolean;
   octokit: Octokit;
   owner: RepoOwner;
-  ref: Reference;
+  ref: Ref;
   repo: RepoName;
   sha: Sha;
 }): Promise<void> => {
-  await octokit.gitdata.updateReference({
+  await octokit.git.updateRef({
     force,
     owner,
     ref: getHeadRef(ref),
@@ -84,7 +82,7 @@ const updateReference = async ({
   });
 };
 
-const deleteReference = async ({
+const deleteRef = async ({
   octokit,
   owner,
   ref,
@@ -92,17 +90,17 @@ const deleteReference = async ({
 }: {
   octokit: Octokit;
   owner: RepoOwner;
-  ref: Reference;
+  ref: Ref;
   repo: RepoName;
 }): Promise<void> => {
-  await octokit.gitdata.deleteReference({
+  await octokit.git.deleteRef({
     owner,
     ref: getHeadRef(ref),
     repo,
   });
 };
 
-const createReference = async ({
+const createRef = async ({
   octokit,
   owner,
   ref,
@@ -111,11 +109,11 @@ const createReference = async ({
 }: {
   octokit: Octokit;
   owner: RepoOwner;
-  ref: Reference;
+  ref: Ref;
   repo: RepoName;
   sha: Sha;
 }): Promise<void> => {
-  await octokit.gitdata.createReference({
+  await octokit.git.createRef({
     owner,
     ref: getFullyQualifiedRef(ref),
     repo,
@@ -123,7 +121,7 @@ const createReference = async ({
   });
 };
 
-const createTemporaryReference = async ({
+const createTemporaryRef = async ({
   octokit,
   owner,
   ref,
@@ -132,15 +130,15 @@ const createTemporaryReference = async ({
 }: {
   octokit: Octokit;
   owner: RepoOwner;
-  ref: Reference;
+  ref: Ref;
   repo: RepoName;
   sha: Sha;
 }): Promise<{
-  deleteTemporaryReference: () => Promise<void>;
-  temporaryRef: Reference;
+  deleteTemporaryRef: () => Promise<void>;
+  temporaryRef: Ref;
 }> => {
   const temporaryRef = generateUniqueRef(ref);
-  await createReference({
+  await createRef({
     octokit,
     owner,
     ref: temporaryRef,
@@ -148,8 +146,8 @@ const createTemporaryReference = async ({
     sha,
   });
   return {
-    async deleteTemporaryReference() {
-      await deleteReference({
+    async deleteTemporaryRef() {
+      await deleteRef({
         octokit,
         owner,
         ref: temporaryRef,
@@ -160,7 +158,7 @@ const createTemporaryReference = async ({
   };
 };
 
-const withTemporaryReference = async <T>({
+const withTemporaryRef = async <T>({
   action,
   octokit,
   owner,
@@ -168,17 +166,14 @@ const withTemporaryReference = async <T>({
   repo,
   sha,
 }: {
-  action: (reference: Reference) => Promise<T>;
+  action: (ref: Ref) => Promise<T>;
   octokit: Octokit;
   owner: RepoOwner;
-  ref: Reference;
+  ref: Ref;
   repo: RepoName;
   sha: Sha;
 }): Promise<T> => {
-  const {
-    deleteTemporaryReference,
-    temporaryRef,
-  } = await createTemporaryReference({
+  const { deleteTemporaryRef, temporaryRef } = await createTemporaryRef({
     octokit,
     owner,
     ref,
@@ -189,30 +184,25 @@ const withTemporaryReference = async <T>({
   try {
     return await action(temporaryRef);
   } finally {
-    await deleteTemporaryReference();
+    await deleteTemporaryRef();
   }
 };
 
-const getCommitsDetails = (
-  response: Octokit.Response<Octokit.PullRequestsGetCommitsResponse>,
-) =>
-  response.data.map(
-    ({
-      commit: {
-        author,
-        committer,
-        message,
-        tree: { sha: tree },
-      },
-      sha,
-    }) => ({
-      author,
-      committer,
-      message,
-      sha,
-      tree,
-    }),
-  );
+const getCommitsDetails = ({
+  commit: {
+    author,
+    committer,
+    message,
+    tree: { sha: tree },
+  },
+  sha,
+}: Octokit.PullsListCommitsResponseItem) => ({
+  author,
+  committer,
+  message,
+  sha,
+  tree,
+});
 
 const fetchCommitsDetails = async ({
   octokit,
@@ -225,20 +215,13 @@ const fetchCommitsDetails = async ({
   pullRequestNumber: PullRequestNumber;
   repo: RepoName;
 }): Promise<CommitDetails[]> => {
-  let response = await octokit.pullRequests.getCommits({
+  const options = octokit.pulls.listCommits.endpoint.merge({
     number: pullRequestNumber,
     owner,
     repo,
   });
-  const details = getCommitsDetails(response);
-  while (octokit.hasNextPage(response)) {
-    // Pagination is a legit use-case for using await in loops.
-    // See https://github.com/octokit/rest.js#pagination
-    // eslint-disable-next-line no-await-in-loop
-    response = await octokit.getNextPage(response);
-    details.push(...getCommitsDetails(response));
-  }
-  return details;
+  const commits = await octokit.paginate(options);
+  return commits.map(getCommitsDetails);
 };
 
 const fetchCommits = async ({
@@ -267,18 +250,18 @@ export {
   CommitMessage,
   CommitDetails,
   PullRequestNumber,
-  Reference,
+  Ref,
   RepoName,
   RepoOwner,
   Sha,
-  createReference,
-  createTemporaryReference,
-  deleteReference,
+  createRef,
+  createTemporaryRef,
+  deleteRef,
   fetchCommits,
   fetchCommitsDetails,
-  fetchReferenceSha,
+  fetchRefSha,
   generateUniqueRef,
   getHeadRef,
-  updateReference,
-  withTemporaryReference,
+  updateRef,
+  withTemporaryRef,
 };
