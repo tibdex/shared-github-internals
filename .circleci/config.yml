@@ -1,6 +1,7 @@
-version: 2
+version: 2.1
+
 jobs:
-  build:
+  check:
     docker:
       - image: circleci/node:10
     steps:
@@ -9,3 +10,11 @@ jobs:
       - run: yarn build
       - run: yarn run tslint
       - run: yarn run prettier --list-different
+
+workflows:
+  check:
+    jobs:
+      - check:
+          filters:
+            branches:
+              ignore: master
