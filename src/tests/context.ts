@@ -1,6 +1,5 @@
 import * as Octokit from "@octokit/rest";
 import * as envalid from "envalid";
-
 import { RepoName, RepoOwner } from "../git";
 
 type TestContext = {
@@ -28,16 +27,13 @@ const createTestContext = (): TestContext => {
     { strict: true },
   );
 
-  const repo = env.GITHUB_TEST_REPOSITORY_NAME;
-  const owner = env.GITHUB_TEST_REPOSITORY_OWNER;
-
-  const octokit = new Octokit();
-  octokit.authenticate({
-    token: env.GITHUB_PERSONAL_ACCESS_TOKEN,
-    type: "token",
-  });
-
-  return { octokit, owner, repo };
+  return {
+    octokit: new Octokit({
+      auth: `token ${env.GITHUB_PERSONAL_ACCESS_TOKEN}`,
+    }),
+    owner: env.GITHUB_TEST_REPOSITORY_OWNER,
+    repo: env.GITHUB_TEST_REPOSITORY_NAME,
+  };
 };
 
 export { createTestContext, TestContext };
