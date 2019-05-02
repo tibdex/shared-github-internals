@@ -216,8 +216,8 @@ const fetchCommitsDetails = async ({
   repo: RepoName;
 }): Promise<CommitDetails[]> => {
   const options = octokit.pulls.listCommits.endpoint.merge({
-    number: pullRequestNumber,
     owner,
+    pull_number: pullRequestNumber,
     repo,
   });
   const commits = await octokit.paginate(options);
